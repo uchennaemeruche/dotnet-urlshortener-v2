@@ -1,5 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.StackExchangeRedis;
 using UrlShortener;
+using UrlShortener.Cache;
 using UrlShortener.Entities;
 using UrlShortener.Models;
 using UrlShortener.Services;
@@ -11,6 +13,16 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddScoped<ICacheService,CacheService>();
+
+//builder.Services.AddStackExchangeRedisCache(options =>
+//{
+//    options.Configuration = builder.Configuration.GetConnectionString("RedisCache");
+//    options.InstanceName = "BriefUrl_";
+//});
+
+//builder.Services.Add(ServiceDescriptor.Singleton<ICacheService, RedisCache>());
+
 //Console.WriteLine($"Data SOurce: {builder.Configuration.GetConnectionString("DefaultConnection")}");
 
 //builder.Services.AddDbContext<UrlShortener.ApplicationDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("Database")));
@@ -18,8 +30,10 @@ builder.Services.AddSwaggerGen();
 //builder.Services.AddDbContext<UrlShortener.ApplicationDbContext>(options => options.UseSqlite(builder.Configuration.GetConnectionString("SQLITE_DB")));
 builder.Services.AddDbContext<UrlShortener.ApplicationDbContext>(options => options.UseSqlite($"Data Source={AppDomain.CurrentDomain.BaseDirectory}UrlShortenerDb.db"));
 
-
 builder.Services.AddScoped<UrlShorteningService>();
+
+
+
 
 var app = builder.Build();
 
@@ -40,10 +54,7 @@ if (app.Environment.IsDevelopment())
 app.MapPost("api/shorten", async (ShortenUrlRequest request, UrlShorteningService service, ApplicationDbContext dbContext, HttpContext httpContext) =>
 {
 
-    if(!Uri.TryCreate(request.Url, UriKind.Absolute, out _))
-    {
-        return Results.BadRequest("Invalid URL");
-    }
+    if(!Uri.TryCreate(request.Url, UriKind.Absolute, out _)) return Results.BadRequest("Invalid URL");
 
     var code = await service.GenerateUniqueCode();
 
@@ -68,16 +79,31 @@ app.MapPost("api/shorten", async (ShortenUrlRequest request, UrlShorteningServic
 
 });
 
-app.MapGet("api/{code}", async (string code, ApplicationDbContext dbContext) => {
+app.MapGet("api/{code}", async (string code, ApplicationDbContext dbContext, ICacheService cacheService) => {
+
+    string cacheKey = code;
+
+    var cachedData = cacheService.GetData<ShortenedUrl>(cacheKey);
+    if (cachedData != null)
+    {
+        Console.WriteLine("Cache is not null");
+
+        //shortenedUrl = cachedData.Where(x => x.Code == code).FirstOrDefault();
+        //shortenedUrl = cachedData;
+
+        return Results.Redirect(cachedData.LongUrl);
+    }
+
+    Console.WriteLine("Cache is NUll, check DB...");
+
     var shortenedUrl = await dbContext.ShortenedUrls.FirstOrDefaultAsync(s => s.Code == code);
 
-    if(shortenedUrl is null)
-    {
-        return Results.NotFound();
-    }
-    //TODO:
-    //Add Accessed URl To Cache to improve performance
+    if (shortenedUrl is null) return Results.NotFound();
+    
 
+    var expirationTime = DateTimeOffset.Now.AddHours(48.0);
+
+    cacheService.SetData(cacheKey, shortenedUrl, expirationTime);
 
     return Results.Redirect(shortenedUrl.LongUrl);
 });
