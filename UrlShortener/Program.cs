@@ -45,10 +45,6 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
-
-   
-
-   
 }
 
 app.MapPost("api/shorten", async (ShortenUrlRequest request, UrlShorteningService service, ApplicationDbContext dbContext, HttpContext httpContext) =>
@@ -74,8 +70,6 @@ app.MapPost("api/shorten", async (ShortenUrlRequest request, UrlShorteningServic
 
     return Results.Ok(shortenedUrl.ShortUrl);
 
-//Shorten URL
-//Save Shortened URL in DB
 
 });
 
@@ -86,7 +80,7 @@ app.MapGet("api/{code}", async (string code, ApplicationDbContext dbContext, ICa
     var cachedData = cacheService.GetData<ShortenedUrl>(cacheKey);
     if (cachedData != null)
     {
-        Console.WriteLine("Cache is not null");
+        Console.WriteLine("Item was found in Cache");
 
         //shortenedUrl = cachedData.Where(x => x.Code == code).FirstOrDefault();
         //shortenedUrl = cachedData;

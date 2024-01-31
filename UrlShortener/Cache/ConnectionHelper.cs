@@ -8,10 +8,7 @@ namespace UrlShortener.Cache
 
         public static ConnectionMultiplexer Connection
         {
-            get
-            {
-                return lazyConnection.Value;
-            }
+            get => lazyConnection.Value;
         }
 
         static ConnectionHelper()
