@@ -31,7 +31,7 @@ namespace UrlShortener.Services
 
         private async void PreGenerateCodes()
         {
-            for(int i =0; i < 100; i++)
+            for(int i =0; i < 10; i++)
             {
                 string code = await this.GetRandomCode();
                 preGeneneratedCodes.Add(code);
@@ -52,6 +52,8 @@ namespace UrlShortener.Services
             }
 
             Console.WriteLine("Generating new one...");
+
+            this.PreGenerateCodes();
 
             return  await GetRandomCode();
           
