@@ -13,7 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddScoped<IUrlShorteningService, UrlShorteningService>();
+builder.Services.AddSingleton<IUrlShorteningService, UrlShorteningService>();
 
 builder.Services.AddScoped<ICacheService,CacheService>();
 
@@ -32,18 +32,21 @@ builder.Services.AddScoped<ICacheService,CacheService>();
 //builder.Services.AddDbContext<UrlShortener.ApplicationDbContext>(options => options.UseSqlite(builder.Configuration.GetConnectionString("SQLITE_DB")));
 
 
-builder.Services.AddHostedService<PreRandomCodeService>();
+//builder.Services.AddHostedService<PreRandomCodeService>();
+
+
+
 builder.Services.AddDbContext<UrlShortener.ApplicationDbContext>(options => options.UseSqlite($"Data Source={AppDomain.CurrentDomain.BaseDirectory}UrlShortenerDb.db"));
 
 
 
+//builder.Services.AddScoped<UrlShorteningService>();
 
+//builder.Services.AddSingleton<IUrlShorteningService, UrlShorteningService>();
 
 
 
 var app = builder.Build();
-
-
 
 
 // Configure the HTTP request pipeline.
@@ -53,7 +56,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.MapPost("api/shorten", async (ShortenUrlRequest request, UrlShorteningService service, ApplicationDbContext dbContext, HttpContext httpContext) =>
+app.MapPost("api/shorten", async (ShortenUrlRequest request, IUrlShorteningService service, ApplicationDbContext dbContext, HttpContext httpContext) =>
 {
 
     if(!Uri.TryCreate(request.Url, UriKind.Absolute, out _)) return Results.BadRequest("Invalid URL");

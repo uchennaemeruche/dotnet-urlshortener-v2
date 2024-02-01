@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 
 namespace UrlShortener.Services
@@ -9,38 +10,90 @@ namespace UrlShortener.Services
         public const string AllowedCodeCharacters =
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
+        private readonly List<string> preGeneneratedCodes = new();
+
         private readonly Random _random = new();
-        private readonly ApplicationDbContext _dbContext;
+        private readonly IServiceProvider _serviceProvider;
 
-        public UrlShorteningService(ApplicationDbContext dbContext)
+        public UrlShorteningService(IServiceProvider serviceProvider)
         {
-            _dbContext = dbContext;
 
+            Console.WriteLine($"Length before initialization is {preGeneneratedCodes.Count} items");
+
+            _serviceProvider = serviceProvider;
+
+            this.PreGenerateCodes();
+
+
+            Console.WriteLine($"Initialized list with {preGeneneratedCodes.Count} items");
+        }
+
+
+        private async void PreGenerateCodes()
+        {
+            for(int i =0; i < 100; i++)
+            {
+                string code = await this.GetRandomCode();
+                preGeneneratedCodes.Add(code);
+            }
         }
 
 
         public async Task<string> GenerateUniqueCode()
         {
-
-            char[] charCodes = new char[ShortLinkLength];
-
-
-            while (true)
+            if(preGeneneratedCodes.Count > 0)
             {
-                for (int i = 0; i < ShortLinkLength; i++)
-                {
-                    int randomIndex = _random.Next(AllowedCodeCharacters.Length - 1);
-                    charCodes[i] = AllowedCodeCharacters[randomIndex];
-                }
+                Console.WriteLine( preGeneneratedCodes.Count + " Codes Pregenerated");
+                var code = preGeneneratedCodes[0];
+                preGeneneratedCodes.RemoveAt(0);
 
-                string code = new string(charCodes);
-
-                if (!await _dbContext.ShortenedUrls.AnyAsync(s => s.Code == code)){
-                    return code;
-                }
+                Console.WriteLine(preGeneneratedCodes.Count + " After taking 1");
+                return code;
             }
+
+            Console.WriteLine("Generating new one...");
+
+            return  await GetRandomCode();
           
         }
+
+        private async Task<string> GetRandomCode()
+        {
+            string uniqueCode;
+
+            do
+            {
+                uniqueCode = this.GenerateRandomCode();
+
+            } while (preGeneneratedCodes.Contains(uniqueCode) || await IsCodeAlreadyInUse(uniqueCode)  );
+            //while (preGeneneratedCodes.Contains(uniqueCode) || await _dbContext.ShortenedUrls.AnyAsync(s => s.Code == uniqueCode)) ;
+
+            this.preGeneneratedCodes.Remove(uniqueCode);
+
+            return uniqueCode;
+        }
+
+        private string GenerateRandomCode()
+        {
+            StringBuilder codeBuilder = new StringBuilder();
+            while (codeBuilder.Length < ShortLinkLength)
+            {
+                int index = _random.Next(AllowedCodeCharacters.Length);
+                codeBuilder.Append(AllowedCodeCharacters[index]);
+            }
+           return codeBuilder.ToString();
+        }
+
+        private Task<bool> IsCodeAlreadyInUse(string code)
+        {
+            using (var scope = _serviceProvider.CreateScope())
+            {
+                var _dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                return _dbContext.ShortenedUrls.AnyAsync(s => s.Code == code);
+            }
+
+        }
+
     }
 }
 
