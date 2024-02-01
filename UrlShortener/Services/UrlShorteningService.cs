@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace UrlShortener.Services
 {
-	public class UrlShorteningService
+	public class UrlShorteningService: IUrlShorteningService
 	{
         public const int ShortLinkLength = 7;
         public const string AllowedCodeCharacters =
@@ -39,9 +39,6 @@ namespace UrlShortener.Services
                     return code;
                 }
             }
-
-           
-
           
         }
     }

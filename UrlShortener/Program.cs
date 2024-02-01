@@ -13,6 +13,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddScoped<IUrlShorteningService, UrlShorteningService>();
+
 builder.Services.AddScoped<ICacheService,CacheService>();
 
 //builder.Services.AddStackExchangeRedisCache(options =>
@@ -28,9 +30,13 @@ builder.Services.AddScoped<ICacheService,CacheService>();
 //builder.Services.AddDbContext<UrlShortener.ApplicationDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("Database")));
 
 //builder.Services.AddDbContext<UrlShortener.ApplicationDbContext>(options => options.UseSqlite(builder.Configuration.GetConnectionString("SQLITE_DB")));
+
+
+builder.Services.AddHostedService<PreRandomCodeService>();
 builder.Services.AddDbContext<UrlShortener.ApplicationDbContext>(options => options.UseSqlite($"Data Source={AppDomain.CurrentDomain.BaseDirectory}UrlShortenerDb.db"));
 
-builder.Services.AddScoped<UrlShorteningService>();
+
+
 
 
 

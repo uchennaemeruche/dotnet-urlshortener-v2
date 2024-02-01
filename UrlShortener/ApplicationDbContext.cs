@@ -12,6 +12,7 @@ namespace UrlShortener
 		}
 
 		public DbSet<ShortenedUrl> ShortenedUrls { get; set; }
+		public DbSet<UrlCode> UrlCodes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -21,13 +22,23 @@ namespace UrlShortener
 				builder.HasIndex(s => s.Code).IsUnique();
 			});
 
+
+            modelBuilder.Entity<UrlCode>(builder =>
+            {
+                builder.Property(s => s.Code).HasMaxLength(UrlShorteningService.ShortLinkLength);
+                builder.HasIndex(s => s.Code).IsUnique();
+            });
+
+
+
+
         }
 
-   //     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-   //     {
-   //         optionsBuilder.UseSqlite($"Data Source={AppDomain.CurrentDomain.BaseDirectory}UrlShortenerDb.db");
-			//base.OnConfiguring(optionsBuilder);
-   //     }
+        //     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        //     {
+        //         optionsBuilder.UseSqlite($"Data Source={AppDomain.CurrentDomain.BaseDirectory}UrlShortenerDb.db");
+        //base.OnConfiguring(optionsBuilder);
+        //     }
     }
 }
 
