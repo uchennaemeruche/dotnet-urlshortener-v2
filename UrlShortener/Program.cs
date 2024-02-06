@@ -1,4 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Hangfire;
+using Hangfire.Storage.SQLite;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.StackExchangeRedis;
 using UrlShortener;
 using UrlShortener.Cache;
@@ -7,6 +9,7 @@ using UrlShortener.Models;
 using UrlShortener.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
 
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -39,6 +42,16 @@ builder.Services.AddScoped<ICacheService,CacheService>();
 builder.Services.AddDbContext<UrlShortener.ApplicationDbContext>(options => options.UseSqlite($"Data Source={AppDomain.CurrentDomain.BaseDirectory}UrlShortenerDb.db"));
 
 
+builder.Services.AddHangfire(config => config
+.UseSimpleAssemblyNameTypeSerializer()
+.UseRecommendedSerializerSettings()
+.UseSQLiteStorage($"{AppDomain.CurrentDomain.BaseDirectory}UrlShortenerDb.db")
+);
+
+builder.Services.AddHangfireServer();
+
+builder.Services.AddScoped<IServiceManagement, ServiceManagement>();
+
 
 //builder.Services.AddScoped<UrlShorteningService>();
 
@@ -47,6 +60,8 @@ builder.Services.AddDbContext<UrlShortener.ApplicationDbContext>(options => opti
 
 
 var app = builder.Build();
+
+app.Services.GetService<IRecurringJobManager>().AddOrUpdate<IServiceManagement>("syncJob", x=>x.GenerateUrlCode(), "0 */1 * ? * *");
 
 
 // Configure the HTTP request pipeline.
@@ -76,6 +91,10 @@ app.MapPost("api/shorten", async (ShortenUrlRequest request, IUrlShorteningServi
     dbContext.ShortenedUrls.Add(shortenedUrl);
 
     await dbContext.SaveChangesAsync();
+
+    var jobId = BackgroundJob.Enqueue<IServiceManagement>(x => x.SendEmail());
+
+    Console.WriteLine($"Job id: {jobId}");
 
     return Results.Ok(shortenedUrl.ShortUrl);
 
@@ -108,10 +127,17 @@ app.MapGet("api/{code}", async (string code, ApplicationDbContext dbContext, ICa
 
     cacheService.SetData(cacheKey, shortenedUrl, expirationTime);
 
+    var jobId = BackgroundJob.Schedule<IServiceManagement>(x => x.UpdateDatabase(), TimeSpan.FromSeconds(20));
+    Console.WriteLine($"Job id: {jobId}");
+
     return Results.Redirect(shortenedUrl.LongUrl);
 });
 
 app.UseHttpsRedirection();
+
+app.UseHangfireDashboard();
+
+app.MapHangfireDashboard();
 
 
 

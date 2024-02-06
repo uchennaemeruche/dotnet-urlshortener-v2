@@ -6,55 +6,76 @@ using UrlShortener.Entities;
 
 namespace UrlShortener.Services
 {
-    public class PreRandomCodeService : BackgroundService
+    public class PreRandomCodeService : IHostedService
     {
-        //private readonly IServiceProvider _serviceProvider;
+        private readonly IServiceProvider _serviceProvider;
 
-        //private readonly IUrlShorteningService _urlShorteningService;
+        private readonly IUrlShorteningService _urlShorteningService;
 
-        private readonly ApplicationDbContext _dbContext;
+        
 
-        public PreRandomCodeService( IServiceProvider serviceProvider )
+        public PreRandomCodeService( IUrlShorteningService urlShorteningService, IServiceProvider serviceProvider)
         {
-            //_serviceProvider = serviceProvider;
-            //_urlShorteningService = urlShorteningService;
-            _dbContext = serviceProvider.CreateScope().ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            _serviceProvider = serviceProvider;
+
+            _urlShorteningService = urlShorteningService;
+            //_dbContext = serviceProvider.CreateScope().ServiceProvider.GetRequiredService<ApplicationDbContext>();
         }
 
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        public async Task StartAsync(CancellationToken stoppingToken)
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                int min = 1;
-                int hrs = 0;
+              
                 try
                 {
-                    //using var scope = _serviceProvider.CreateScope();
 
-                    //ApplicationDbContext _dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                    var currentTime = DateTime.UtcNow;
+                    using var scope = _serviceProvider.CreateScope();
 
-                   string code = "23kwerk";
+                    ApplicationDbContext _dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-                    var url_code = new UrlCode
+                    //IUrlShorteningService service = scope.ServiceProvider.GetRequiredService<UrlShorteningService>();
+                    //Run background service at 10:45am
+                    if (currentTime.Hour == 10 && currentTime.Minute == 45 && currentTime.Second == 0)
                     {
-                        Code = code,
-                    };
+                        string code = await _urlShorteningService.GenerateUniqueCode();
 
-                    _dbContext.UrlCodes.Add(url_code);
+                        var url_code = new UrlCode
+                        {
+                            Code = code,
+                        };
 
-                    await _dbContext.SaveChangesAsync();
+                        _dbContext.UrlCodes.Add(url_code);
+
+                        await _dbContext.SaveChangesAsync();
+
+                         
+                    }
+
+                  
 
                 }
                 catch(Exception e)
                 {
-                    Console.WriteLine("An error occured here: ", e);
+                    Console.WriteLine($"An error occured here: {e}");
+
+
 
                 }
                 finally
                 {
-
+                 
                 }
+                
             }
+
+          
+        }
+
+        public Task StopAsync(CancellationToken stoppingToken)
+        {
+            return Task.CompletedTask;
         }
     }
 }
